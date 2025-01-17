@@ -4,7 +4,14 @@ import moment from "moment";
 import Swal from "sweetalert2";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import api from "../../api/axios";
-import { Container, Form, FormSelect, Col, Modal, Button } from "react-bootstrap";
+import {
+  Container,
+  Form,
+  FormSelect,
+  Col,
+  Modal,
+  Button,
+} from "react-bootstrap";
 import "./calendario.css";
 import { Menu } from "../Navbar/Menu";
 
@@ -28,45 +35,51 @@ const Calendario = () => {
           headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
         });
 
-        const specialists = response.data.filter((user) => user.rol=='especialista' && user.id_usuario!=usuario.id_usuario);
+        const specialists = response.data.filter(
+          (user) =>
+            user.rol == "especialista" && user.id_usuario != usuario.id_usuario
+        );
         setDoctors(specialists);
         if (specialists.length > 0) {
           setSelectedDoctor(specialists[0]);
         }
-      if(usuario.rol !== 'especialista'){
-        const appointmentsResponse = await api.get("/citas", {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        });
-        llenarCalendario(appointmentsResponse.data)
-     
-      }else{
-       const appointmentsResponse2 = await api.get(`/citas/bySpec/${usuario.id_usuario}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        });
-        llenarCalendario(appointmentsResponse2.data)
-      }
-        
-        
+        if (usuario.rol !== "especialista") {
+          const appointmentsResponse = await api.get("/citas", {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          });
+          llenarCalendario(appointmentsResponse.data);
+        } else {
+          const appointmentsResponse2 = await api.get(
+            `/citas/bySpec/${usuario.id_usuario}`,
+            {
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem("token")}`,
+              },
+            }
+          );
+          llenarCalendario(appointmentsResponse2.data);
+        }
       } catch (error) {
         console.error("Error al cargar datos:", error);
       }
     };
 
     fetchDoctorsAndAppointments();
-  
   }, []);
 
-const llenarCalendario=(appoimets)=>{
-     const mappedAppointments = appoimets.map((cita) => ({
-          start: new Date(cita.fecha_cita),
-          end: moment(new Date(cita.fecha_cita)).add(1, "hour").toDate(),
-          title: cita.title,
-          id_especialista: cita.id_especialista,
-          id_paciente: cita.id_paciente,
-        }));
+  const llenarCalendario = (appoimets) => {
+    const mappedAppointments = appoimets.map((cita) => ({
+      start: new Date(cita.fecha_cita),
+      end: moment(new Date(cita.fecha_cita)).add(1, "hour").toDate(),
+      title: cita.title,
+      id_especialista: cita.id_especialista,
+      id_paciente: cita.id_paciente,
+    }));
 
-        setPatientAppointments(mappedAppointments);
-}
+    setPatientAppointments(mappedAppointments);
+  };
   const handleBookAppointment = async () => {
     if (!patientName.trim()) {
       Swal.fire({
@@ -98,38 +111,45 @@ const llenarCalendario=(appoimets)=>{
           estado: "Creado",
           title: appointment.title,
         },
-        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        }
       );
-      Swal.fire("Cita reservada", "Su cita ha sido registrada con éxito.", "success");
+      Swal.fire(
+        "Cita reservada",
+        "Su cita ha sido registrada con éxito.",
+        "success"
+      );
     } catch (err) {
       console.error("Ocurrió un problema:", err);
     }
 
     setShowModal(false);
     setPatientName("");
-  }
+  };
   const slotpropgetter = (date) => {
-    const fechaActualAjustada=moment(date)
-    const isPastDate = fechaActualAjustada.isBefore(moment(), 'hour')
-    const isInaccess= fechaActualAjustada.hour()>16||fechaActualAjustada.hour()<8
-    if (isPastDate  || isInaccess) {
+    const fechaActualAjustada = moment(date);
+    const isPastDate = fechaActualAjustada.isBefore(moment(), "hour");
+    const isInaccess =
+      fechaActualAjustada.hour() > 16 || fechaActualAjustada.hour() < 8;
+    if (isPastDate || isInaccess) {
       return {
-        className: 'past-day',
+        className: "past-day",
         style: {
-          backgroundColor: 'rgba(180, 180, 180, 0.7)',
-          opacity: 0.5
-        }
-      }
+          backgroundColor: "rgba(180, 180, 180, 0.7)",
+          opacity: 0.5,
+        },
+      };
     }
-    return {}
-  }
+    return {};
+  };
 
   const handleSlotSelection = ({ start }) => {
-    if(usuario.rol === 'especialista')return
-    const fechaSeleccionada=moment(start)
-    if(fechaSeleccionada<moment()) return
-    if(fechaSeleccionada.hour()>16 || fechaSeleccionada.hour()<8) return
-   
+    if (usuario.rol === "especialista") return;
+    const fechaSeleccionada = moment(start);
+    if (fechaSeleccionada < moment()) return;
+    if (fechaSeleccionada.hour() > 16 || fechaSeleccionada.hour() < 8) return;
+
     if (!selectedDoctor) {
       Swal.fire({
         icon: "error",
@@ -159,7 +179,7 @@ const llenarCalendario=(appoimets)=>{
   };
 
   const handleEventSelection = (event) => {
-    if(usuario.rol === 'especialista')return
+    if (usuario.rol === "especialista") return;
 
     Swal.fire({
       icon: "info",
@@ -167,21 +187,21 @@ const llenarCalendario=(appoimets)=>{
       text: `Esta cita ya está reservada: ${event.title}`,
     });
   };
-  var displayedEvents=patientAppointments
- if(usuario.rol !== 'especialista'){
-  displayedEvents = patientAppointments.filter(
-    (appointment) =>
-      appointment.id_especialista === (selectedDoctor?.id_usuario || null)
-  );
- }
- 
+  var displayedEvents = patientAppointments;
+  if (usuario.rol !== "especialista") {
+    displayedEvents = patientAppointments.filter(
+      (appointment) =>
+        appointment.id_especialista === (selectedDoctor?.id_usuario || null)
+    );
+  }
+
   const mostrarSelect = () => {
     // Mostrar si el usuario no es especialista
-    if (usuario.rol === 'especialista') return false;
-  
+    if (usuario.rol === "especialista") return false;
+
     // Ocultar si hay solo un médico
     return doctors.length > 1;
-  }
+  };
 
   return (
     <Container fluid className="calendario px-0">
@@ -189,26 +209,36 @@ const llenarCalendario=(appoimets)=>{
       <Menu />
       <div className="d-flex mb-4 justify-content-center">
         <Col md={6} sm={12}>
-          {mostrarSelect() && <><h3 className="text-center mb-4">Seleccione un Especialista</h3>
-         <Form>
-            <Form.Group>
-              <FormSelect
-                value={selectedDoctor?.id_usuario || ""}
-                onChange={(e) =>
-                  setSelectedDoctor(
-                    doctors.find((doc) => doc.id_usuario === parseInt(e.target.value))
-                  )
-                }
-              >
-                {doctors.map((doctor) => (
-                  <option key={doctor.id_usuario} value={doctor.id_usuario}>
-                    {doctor.nombre}
-                  </option>
-                ))}
-              </FormSelect>
-            </Form.Group>
-          </Form></>
-          }
+          {!mostrarSelect() && (
+            <h3 className="text-center mb-4">
+              {doctors.length == 1 ? doctors[0].nombre : ""}
+            </h3>
+          )}
+          {mostrarSelect() && (
+            <>
+              <h3 className="text-center mb-4">Seleccione un Especialista</h3>
+              <Form>
+                <Form.Group>
+                  <FormSelect
+                    value={selectedDoctor?.id_usuario || ""}
+                    onChange={(e) =>
+                      setSelectedDoctor(
+                        doctors.find(
+                          (doc) => doc.id_usuario === parseInt(e.target.value)
+                        )
+                      )
+                    }
+                  >
+                    {doctors.map((doctor) => (
+                      <option key={doctor.id_usuario} value={doctor.id_usuario}>
+                        {doctor.nombre}
+                      </option>
+                    ))}
+                  </FormSelect>
+                </Form.Group>
+              </Form>
+            </>
+          )}
         </Col>
       </div>
       <div className="d-flex">

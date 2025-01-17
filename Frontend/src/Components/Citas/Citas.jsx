@@ -3,22 +3,33 @@ import Swal from "sweetalert2";
 import api from "../../api/axios";
 import { Menu } from "../Navbar/Menu";
 import { useNavigate } from "react-router-dom";
-import { Container, Row, Col, Button, Form, Modal, Table } from "react-bootstrap";
+import {
+  Container,
+  Row,
+  Col,
+  Button,
+  Form,
+  Modal,
+  Table,
+} from "react-bootstrap";
 
 const Citas = () => {
   const [showModal, setShowModal] = useState(false);
   const [selectedCita, setSelectedCita] = useState(null); // Para almacenar la cita seleccionada
   const [citas, setCitas] = useState([]);
+  const [citasShow, setCitasShow] = useState([]);
+
   const [loading, setLoading] = useState(true);
-  const [fecha,setFecha]=useState();
-  const [paciente,setPaciente]=useState();
+  const [fecha, setFecha] = useState();
+  const [filtroCitas, setFiltroCitas] = useState("");
+  const [filtroEstado, setFiltroEstado] = useState("Terminado");
+
   const usuario = localStorage.getItem("usuario");
   const navigate = useNavigate();
   let userId = null;
 
   if (usuario) {
     try {
-    
       const user = JSON.parse(usuario);
       userId = user?.id_usuario || null;
     } catch (error) {
@@ -27,19 +38,17 @@ const Citas = () => {
   } else {
     console.warn("No se encontró el usuario en el localStorage");
   }
-  console.log(usuario,userId)
   const fetchCitas = async () => {
     try {
       const response = await api.get(`/citas`, {
         headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
-      const hoy = new Date().toISOString().split("T")[0];
-      //console.log("reponse.data",response.data)
-      setPaciente(response.data.id_paciente);
+
       const citasDelDia = response.data.filter(
         (cita) => cita.id_especialista === userId
       );
       setCitas(citasDelDia);
+      setCitasShow(citasDelDia);
 
       if (citasDelDia.length === 0) {
         Swal.fire({
@@ -62,6 +71,42 @@ const Citas = () => {
     }
   };
 
+  const filtrarPorTextos = (cita) => {
+    const siCumple =
+      new Date(cita.fecha_cita)
+        .toLocaleDateString()
+        .includes(filtroCitas.toLowerCase()) ||
+      new Date(cita.fecha_cita)
+        .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+        .includes(filtroCitas.toLowerCase()) ||
+      cita.Paciente?.nombre.toLowerCase().includes(filtroCitas.toLowerCase()) ||
+      cita.title.toLowerCase().includes(filtroCitas.toLowerCase());
+
+    return siCumple;
+  };
+
+  useEffect(() => {
+    if (filtroEstado && filtroCitas) {
+      setCitasShow(
+        citas.filter(
+          (cita) =>
+            cita.estado.toLowerCase().includes(filtroEstado.toLowerCase()) &&
+            filtrarPorTextos(cita)
+        )
+      );
+    } else if (filtroCitas) {
+      setCitasShow(citas.filter(filtrarPorTextos));
+    } else if (filtroEstado) {
+      setCitasShow(
+        citas.filter((cita) =>
+          cita.estado.toLowerCase().includes(filtroEstado.toLowerCase())
+        )
+      );
+    } else {
+      setCitasShow(citas);
+    }
+  }, [filtroCitas, filtroEstado, citas]);
+
   useEffect(() => {
     if (userId) fetchCitas();
   }, [userId]);
@@ -79,7 +124,9 @@ const Citas = () => {
       }).then(async (result) => {
         if (result.isConfirmed) {
           await api.delete(`/citas/${idCita}`, {
-            headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
           });
           Swal.fire("Eliminada", "La cita ha sido eliminada", "success");
           fetchCitas();
@@ -99,24 +146,19 @@ const Citas = () => {
     const fechaHora = new Date(cita.fecha_cita); // Convertir la fecha y hora a objeto Date
     const fecha = fechaHora.toISOString().split("T")[0]; // Obtener solo la fecha
     const hora = fechaHora.toTimeString().split(":").slice(0, 2).join(":"); // Obtener solo la hora en formato HH:mm
-    //console.log(fecha)
-    //console.log(hora)
-    setFecha(fecha+" "+hora);
+
+    setFecha(fecha + " " + hora);
     setSelectedCita({
-        id: cita.id_cita,
-        titulo: cita.title,
-        fecha, // Solo fecha
-        hora, // Solo hora
+      id: cita.id_cita,
+      titulo: cita.title,
+      fecha, // Solo fecha
+      hora, // Solo hora
     });
     setShowModal(true);
-};
-
+  };
 
   const handleUpdateChange = (e) => {
     const { name, value } = e.target;
-    //console.log("name",name)
-    //console.log("value",value)
-
 
     setSelectedCita((prev) => ({ ...prev, [name]: value }));
   };
@@ -124,65 +166,82 @@ const Citas = () => {
   const actualizarCita = async () => {
     const horaRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
     if (!horaRegex.test(selectedCita.hora)) {
-        Swal.fire("Error", "Formato de hora inválido (HH:mm).", "error");
-        return;
+      Swal.fire("Error", "Formato de hora inválido (HH:mm).", "error");
+      return;
     }
 
     const [hora] = selectedCita.hora.split(":").map(Number);
-    if(hora===17){
-        if(selectedCita.hora.split(":")[1]!=="00"){
-            Swal.fire("Error", "La hora debe estar entre las 08:00 y las 17:00.", "error");
-            return;
-        }
-    }
-    if ((hora < 8 || hora > 17)) {
-        console.log("select",selectedCita.hora.split(":")[1])
-        Swal.fire("Error", "La hora debe estar entre las 08:00 y las 17:00.", "error");
+    if (hora === 17) {
+      if (selectedCita.hora.split(":")[1] !== "00") {
+        Swal.fire(
+          "Error",
+          "La hora debe estar entre las 08:00 y las 17:00.",
+          "error"
+        );
         return;
-        alert('kk')
+      }
+    }
+    if (hora < 8 || hora > 17) {
+      Swal.fire(
+        "Error",
+        "La hora debe estar entre las 08:00 y las 17:00.",
+        "error"
+      );
+      return;
+      alert("kk");
     }
 
     // Obtén solo la fecha de la variable fecha_cita
     //const fechaCitaCompleta = fecha.fecha_cita; // Supongo que esto contiene el valor completo "YYYY-MM-DD HH:mm:ss"
-    //console.log(fecha)
     const newFecha = fecha.split(" ")[0]; // Divide la cadena y toma solo la parte de la fecha
-    //console.log("newfecha",newFecha)
     try {
-        //console.log(selectedCita.id);
-        await api.put(
-            `/citas/${selectedCita.id}`,
-            {
-                title: selectedCita.titulo,
-                fecha:newFecha, // Usa solo la fecha extraída
-                hora: selectedCita.hora, // Mantén la hora
-            },
-            {
-                headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-            }
-        );
-        Swal.fire("Éxito", "Cita actualizada correctamente.", "success");
-        fetchCitas();
-        handleModalClose();
+      await api.put(
+        `/citas/${selectedCita.id}`,
+        {
+          title: selectedCita.titulo,
+          fecha: newFecha, // Usa solo la fecha extraída
+          hora: selectedCita.hora, // Mantén la hora
+        },
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        }
+      );
+      Swal.fire("Éxito", "Cita actualizada correctamente.", "success");
+      fetchCitas();
+      handleModalClose();
     } catch (err) {
-        console.error("Error al actualizar la cita:", err);
-        Swal.fire("Error", "No se pudo actualizar la cita.", "error");
+      console.error("Error al actualizar la cita:", err);
+      Swal.fire("Error", "No se pudo actualizar la cita.", "error");
     }
-};
+  };
 
-const terminarCita=async(cita)=>{
+  const terminarCita = async (cita) => {
     const fechaHora = new Date(cita.fecha_cita); // Convertir la fecha y hora a objeto Date
     const fecha = fechaHora.toISOString().split("T")[0];
-    //console.log(cita)
-    navigate('/finalizarAtencion',{state:{id_cita:cita.id_cita,id_paciente:cita.id_paciente, id_especialista:cita.id_especialista,fecha,Paciente:cita.Paciente,estado:cita.estado}})
-}
-const verDetalle=async(cita)=>{
+    navigate("/finalizarAtencion", {
+      state: {
+        id_cita: cita.id_cita,
+        id_paciente: cita.id_paciente,
+        id_especialista: cita.id_especialista,
+        fecha,
+        Paciente: cita.Paciente,
+        estado: cita.estado,
+      },
+    });
+  };
+  const verDetalle = async (cita) => {
     const fechaHora = new Date(cita.fecha_cita); // Convertir la fecha y hora a objeto Date
     const fecha = fechaHora.toISOString().split("T")[0];
-    //console.log(cita)
-    navigate('/DetalleCita',{state:{id_cita:cita.id_cita,id_paciente:cita.id_paciente, id_especialista:cita.id_especialista,fecha,Paciente:cita.Paciente}})
-}
-
-
+    navigate("/DetalleCita", {
+      state: {
+        id_cita: cita.id_cita,
+        id_paciente: cita.id_paciente,
+        id_especialista: cita.id_especialista,
+        fecha,
+        Paciente: cita.Paciente,
+      },
+    });
+  };
 
   if (loading) return <p>Cargando...</p>;
 
@@ -191,70 +250,94 @@ const verDetalle=async(cita)=>{
       <Menu />
       <h3 className="text-center mb-4">Historial de Citas</h3>
       <Row className="px-4">
-        <Col>
-          <Table striped bordered hover responsive>
-            <thead>
-              <tr>
-                <th>FECHA</th>
-                <th>Hora</th>
-                <th>Estado</th>
-                <th>Título</th>
-                <th>Paciente</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {citas.map((cita) => (
-                <tr key={cita.id_cita}>
-                   <td>
-                    {new Date(cita.fecha_cita).toLocaleDateString()}
-                  </td>
-                  <td>
-                    {new Date(cita.fecha_cita).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </td>
-                  <td>{cita.estado}</td>
-                  <td>{cita.title}</td>
-                  <td>{cita.Paciente?.nombre}</td>
-                  <td>
-                    <Button
-                      variant="success"
-                      size="sm"
-                      style={{marginRight:'5px'}}
-                      onClick={() => verDetalle(cita)}
-                      disabled={!cita?.estado?.startsWith('T')}
-                    >
-                     ver detalle
-                    </Button>
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={() => eliminarCita(cita.id_cita)}
-                    >
-                      Eliminar
-                    </Button>{" "}
-                    <Button
-                      variant="warning"
-                      size="sm"
-                      onClick={() => abrirModalActualizar(cita)}
-                    >
-                      Actualizar
-                    </Button>{" "}
-                    <Button
-                      variant="success"
-                      size="sm"
-                      onClick={() => terminarCita(cita)}
-                    >
-                      {cita?.estado?.startsWith('T')?'Agregar Diagnostico':'Generar atencion'}
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
+        <Col className="d-flex justify-content-end mb-3">
+          <Form.Group>
+            <Form.Control
+              type="text"
+              placeholder="Buscar"
+              value={filtroCitas}
+              onChange={({ target: { value } }) => setFiltroCitas(value)}
+            />
+          </Form.Group>
+          <Form.Group className="mx-3 gap-2">
+            <Button
+              variant="danger"
+              onClick={() => setFiltroEstado("Terminado")}
+              disabled={filtroEstado === "Terminado"}
+            >
+              Terminado
+            </Button>
+            <Button
+              variant="success"
+              onClick={() => setFiltroEstado("Creado")}
+              disabled={filtroEstado === "Creado"}
+            >
+              Creado
+            </Button>
+          </Form.Group>
         </Col>
+        <Table striped bordered hover responsive>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Hora</th>
+              <th>Estado</th>
+              <th>Título</th>
+              <th>Paciente</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {citasShow.map((cita) => (
+              <tr key={cita.id_cita}>
+                <td>{new Date(cita.fecha_cita).toLocaleDateString()}</td>
+                <td>
+                  {new Date(cita.fecha_cita).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </td>
+                <td>{cita.estado}</td>
+                <td>{cita.title}</td>
+                <td>{cita.Paciente?.nombre}</td>
+                <td>
+                  <Button
+                    variant="success"
+                    size="sm"
+                    style={{ marginRight: "5px" }}
+                    onClick={() => verDetalle(cita)}
+                    disabled={!cita?.estado?.startsWith("T")}
+                  >
+                    Ver detalle
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={() => eliminarCita(cita.id_cita)}
+                  >
+                    Eliminar
+                  </Button>{" "}
+                  <Button
+                    variant="warning"
+                    size="sm"
+                    onClick={() => abrirModalActualizar(cita)}
+                  >
+                    Actualizar
+                  </Button>{" "}
+                  <Button
+                    variant="success"
+                    size="sm"
+                    onClick={() => terminarCita(cita)}
+                  >
+                    {cita?.estado?.startsWith("T")
+                      ? "Agregar Diagnostico"
+                      : "Generar atencion"}
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
       </Row>
 
       {/* Modal para actualizar cita */}
